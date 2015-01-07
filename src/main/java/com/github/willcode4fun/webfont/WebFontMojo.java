@@ -70,13 +70,13 @@ public class WebFontMojo extends AbstractMojo {
 				getLog().info("File to transform : " + name);
 
 				try {
+					generateDirs(outputDirectory, simpleName);
 					final File cleaned = cleanSvgFile(file);
 					// final File cleaned = file;
 					getLog().info("cleaned file: " + cleaned.getAbsolutePath());
 
 					final Font data = extractData(cleaned, simpleName, simpleName);
 
-					generateDirs(outputDirectory, simpleName);
 					if (generateSample) {
 						generateSample(outputDirectory, data);
 					}
@@ -188,7 +188,7 @@ public class WebFontMojo extends AbstractMojo {
 	}
 
 	private void generateDirs(final File outputDir, final String name) {
-
+		outputDir.mkdir();
 		final File base = new File(outputDir, "font-" + name);
 		base.mkdir();
 		final File css = new File(base, "css");

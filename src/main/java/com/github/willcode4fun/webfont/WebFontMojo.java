@@ -1,20 +1,4 @@
-package com.github.willcode4fun;
-
-/*
- * Copyright 2001-2005 The Apache Software Foundation.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+package com.github.willcode4fun.webfont;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -22,8 +6,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,6 +13,8 @@ import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 
+import com.github.willcode4fun.webfont.model.Font;
+import com.github.willcode4fun.webfont.model.Glyph;
 import com.google.common.io.Files;
 
 /**
@@ -90,7 +74,7 @@ public class WebFontMojo extends AbstractMojo {
 					// final File cleaned = file;
 					getLog().info("cleaned file: " + cleaned.getAbsolutePath());
 
-					final FontData data = extractData(cleaned, simpleName, simpleName);
+					final Font data = extractData(cleaned, simpleName, simpleName);
 
 					generateDirs(outputDirectory, simpleName);
 					if (generateSample) {
@@ -107,10 +91,8 @@ public class WebFontMojo extends AbstractMojo {
 		}
 	}
 
-	private FontData extractData(final File svgFile, final String simpleName, final String prefix) throws IOException {
-		final FontData data = new FontData();
-		data.name = simpleName;
-		data.prefix = prefix;
+	private Font extractData(final File svgFile, final String simpleName, final String prefix) throws IOException {
+		final Font font = new Font(simpleName, prefix);
 		final String content = Files.toString(svgFile, Charset.forName("UTF-8"));
 		int nextGlyphIndex = content.indexOf("<glyph", 0);
 		while (nextGlyphIndex > 0) {
@@ -125,25 +107,11 @@ public class WebFontMojo extends AbstractMojo {
 					.replaceAll(";", "");
 			getLog().info("Glyph name : " + glyphName + " unicode =" + glyphCode);
 
-			final GlyphData glyph = new GlyphData();
-			glyph.name = glyphName;
-			glyph.unicode = glyphCode;
-			data.glyphs.add(glyph);
+			font.addGlyph(new Glyph(glyphName, glyphCode));
 
 			nextGlyphIndex = content.indexOf("<glyph", nextGlyphIndex + 1);
 		}
-		return data;
-	}
-
-	private class FontData {
-		String name;
-		String prefix;
-		List<GlyphData> glyphs = new ArrayList<GlyphData>();
-	}
-
-	private class GlyphData {
-		String name;
-		String unicode;
+		return font;
 	}
 
 	private File cleanSvgFile(final File file) {
@@ -172,17 +140,17 @@ public class WebFontMojo extends AbstractMojo {
 		}
 	}
 
-	private void generateSample(final File outputDir, final FontData data) throws IOException {
-		final File base = new File(outputDir, "/font-" + data.name + "/sample/sample.html");
+	private void generateSample(final File outputDir, final Font font) throws IOException {
+		final File base = new File(outputDir, "/font-" + font.getName() + "/sample/sample.html");
 		String content = IOUtils.toString(this.getClass().getResourceAsStream("/sample.html.tpl"));
-		content = content.replaceAll("##name##", data.name);
+		content = content.replaceAll("##name##", font.getName());
 		base.createNewFile();
 		final StringBuilder sb = new StringBuilder();
-		for (final GlyphData glyph : data.glyphs) {
+		for (final Glyph glyph : font.getGlyphs()) {
 			sb.append("\n<i class=\"icon-");
-			sb.append(data.prefix);
+			sb.append(font.getPrefix());
 			sb.append("-");
-			sb.append(glyph.name);
+			sb.append(glyph.getName());
 			sb.append("\"></i>");
 		}
 		content = content.replaceAll("##body##", sb.toString());
@@ -191,26 +159,27 @@ public class WebFontMojo extends AbstractMojo {
 
 	}
 
-	private void generateCss(final File outputDir, final FontData data) throws IOException {
-		final File base = new File(outputDir, "/font-" + data.name + "/css/font-" + data.name + ".css");
+	private void generateCss(final File outputDir, final Font font) throws IOException {
+		final String name = font.getName();
+		final File base = new File(outputDir, "/font-" + name + "/css/font-" + name + ".css");
 
 		base.createNewFile();
 		String cssContent = IOUtils.toString(this.getClass().getResourceAsStream("/css.tpl"));
 
-		cssContent = cssContent.replaceAll("##name##", data.name).replaceAll("##prefix##", data.prefix)
-				.replaceAll("##family##", "Font" + data.name.toUpperCase().charAt(0) + data.name.substring(1));
+		cssContent = cssContent.replaceAll("##name##", name).replaceAll("##prefix##", font.getPrefix())
+				.replaceAll("##family##", "Font" + name.toUpperCase().charAt(0) + name.substring(1));
 
 		final StringBuilder sb = new StringBuilder(cssContent);
-		for (final GlyphData glyph : data.glyphs) {
+		for (final Glyph glyph : font.getGlyphs()) {
 			sb.append("\n.icon-");
-			sb.append(data.prefix);
+			sb.append(font.getPrefix());
 			sb.append("-");
-			sb.append(glyph.name);
+			sb.append(glyph.getName());
 			sb.append(":before {  content: \"");
-			if (glyph.unicode.length() > 1) {
+			if (glyph.getUnicode().length() > 1) {
 				sb.append("\\");
 			}
-			sb.append(glyph.unicode);
+			sb.append(glyph.getUnicode());
 			sb.append("\" }");
 		}
 
